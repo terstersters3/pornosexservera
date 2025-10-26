@@ -1,0 +1,135 @@
+local Player = game.Players.LocalPlayer
+local Backpack = Player:WaitForChild("Backpack")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+-- Настройки по умолчанию
+local isSwitching = false -- Флаг для переключения FPS Lagger
+local switchDelay = 0.04 -- Задержка по умолчанию (0.04 сек)
+
+-- Создание GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = Player.PlayerGui
+ScreenGui.Name = "ItemSwitchMenu"
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 200, 0, 70) -- Уменьшен размер, так как убрана вторая кнопка
+Frame.Position = UDim2.new(0.5, -100, 0.5, -35)
+Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Черный фон
+Frame.BackgroundTransparency = 0 -- Убрана прозрачность
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Phub"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 18
+Title.Font = Enum.Font.SourceSansBold
+Title.Parent = Frame
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(1, -20, 0, 40)
+ToggleButton.Position = UDim2.new(0, 10, 0, 30)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Text = "FPS Lagger"
+ToggleButton.Parent = Frame
+
+local ToggleIndicator = Instance.new("Frame")
+ToggleIndicator.Size = UDim2.new(0, 10, 0, 10)
+ToggleIndicator.Position = UDim2.new(0, 5, 0, 5)
+ToggleIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Красный индикатор (выключено)
+ToggleIndicator.Parent = ToggleButton
+
+-- Переменные для перетаскивания
+local isDragging = false
+local dragStart = nil
+local startPos = nil
+local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) -- Плавная анимация
+
+-- Функция для обработки начала перетаскивания (сенсорный ввод)
+Frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = true
+        dragStart = input.Position
+        startPos = Frame.Position
+    end
+end)
+
+-- Функция для обработки перемещения пальцем с анимацией
+Frame.InputChanged:Connect(function(input)
+    if isDragging and input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+        local newPosition = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+        local tween = TweenService:Create(Frame, tweenInfo, {Position = newPosition})
+        tween:Play()
+    end
+end)
+
+-- Функция для обработки конца перетаскивания
+Frame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = false
+    end
+end)
+
+-- Функция для экипировки/снятия "Dark Matter Slap" (FPS Lagger)
+local function switchDarkMatterSlap()
+    local tool = Backpack:FindFirstChild("Dark Matter Slap")
+    if tool and tool:IsA("Tool") and Player.Character then
+        Player.Character.Humanoid:EquipTool(tool)
+        task.wait(switchDelay)
+        Player.Character.Humanoid:UnequipTools()
+        task.wait(switchDelay)
+    end
+end
+
+-- Логика переключения для FPS Lagger
+local function startSwitching()
+    while isSwitching and Player.Character and Player.Character.Humanoid.Health > 0 do
+        switchDarkMatterSlap()
+        task.wait(switchDelay) -- Дополнительная задержка между циклами
+    end
+end
+
+-- Функция для Anti Lagger (автоматически применяется при запуске)
+local function applyAntiLag()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            for _, child in pairs(player.Character:GetChildren()) do
+                if child:IsA("Accessory") or child:IsA("Clothing") or child:IsA("Shirt") or child:IsA("Pants") then
+                    child:Destroy() -- Удаляем визуально для пользователя
+                end
+            end
+        end
+    end
+end
+
+-- Автоматическое применение Anti Lagger при запуске
+applyAntiLag()
+
+-- Обработка кнопки FPS Lagger
+ToggleButton.MouseButton1Click:Connect(function()
+    isSwitching = not isSwitching
+    ToggleIndicator.BackgroundColor3 = isSwitching and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    if isSwitching then
+        spawn(startSwitching) -- Запускаем переключение в отдельном потоке
+    end
+end)
+
+-- Открытие/закрытие меню клавишей (например, "M")
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if not gameProcessedEvent and input.KeyCode == Enum.KeyCode.M then
+        Frame.Visible = not Frame.Visible
+    end
+end)
