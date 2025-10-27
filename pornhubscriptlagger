@@ -6,7 +6,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 -- Настройки по умолчанию
-local isSwitching = false -- Флаг для переключения FPS Lagger
+local isSwitching = true -- Флаг для переключения FPS Lagger, автоматически включен
 local switchDelay = 0.04 -- Задержка по умолчанию (0.04 сек)
 
 -- Создание GUI
@@ -15,8 +15,8 @@ ScreenGui.Parent = Player.PlayerGui
 ScreenGui.Name = "ItemSwitchMenu"
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 200, 0, 70) -- Уменьшен размер, так как убрана вторая кнопка
-Frame.Position = UDim2.new(0.5, -100, 0.5, -35)
+Frame.Size = UDim2.new(0, 200, 0, 70) -- Размер без поля задержки
+Frame.Position = UDim2.new(0, 10, 0, 10) -- Левый верхний угол
 Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Черный фон
 Frame.BackgroundTransparency = 0 -- Убрана прозрачность
 Frame.BorderSizePixel = 0
@@ -43,7 +43,7 @@ ToggleButton.Parent = Frame
 local ToggleIndicator = Instance.new("Frame")
 ToggleIndicator.Size = UDim2.new(0, 10, 0, 10)
 ToggleIndicator.Position = UDim2.new(0, 5, 0, 5)
-ToggleIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Красный индикатор (выключено)
+ToggleIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Зеленый индикатор (включено)
 ToggleIndicator.Parent = ToggleButton
 
 -- Переменные для перетаскивания
@@ -115,15 +115,18 @@ local function applyAntiLag()
     end
 end
 
--- Автоматическое применение Anti Lagger при запуске
+-- Автоматическое применение Anti Lagger и FPS Lagger при запуске
 applyAntiLag()
+if Player.Character and Player.Character.Humanoid.Health > 0 then
+    spawn(startSwitching) -- Автоматически запускаем FPS Lagger
+end
 
--- Обработка кнопки FPS Lagger
+-- Обработка кнопки FPS Lagger (теперь только для выключения)
 ToggleButton.MouseButton1Click:Connect(function()
     isSwitching = not isSwitching
     ToggleIndicator.BackgroundColor3 = isSwitching and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-    if isSwitching then
-        spawn(startSwitching) -- Запускаем переключение в отдельном потоке
+    if not isSwitching and task.wait(0.1) then -- Небольшая задержка для остановки
+        Player.Character.Humanoid:UnequipTools() -- Снимаем инструмент при выключении
     end
 end)
 
