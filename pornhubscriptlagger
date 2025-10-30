@@ -5,134 +5,264 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
--- Настройки по умолчанию
-local isSwitching = true -- Флаг для переключения FPS Lagger, автоматически включен
-local switchDelay = 0.04 -- Задержка по умолчанию (0.04 сек)
+-- === Настройки ===
+local isSwitching = false
+local switchDelay = 0.04
+local MAX_DISTANCE = 30 -- Радиус обнаружения (studs)
+local UPDATE_INTERVAL = 0.5 -- Обновление FPS каждые 0.5 сек
 
--- Создание GUI
+-- === GUI ===
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = Player.PlayerGui
 ScreenGui.Name = "ItemSwitchMenu"
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 200, 0, 70) -- Размер без поля задержки
-Frame.Position = UDim2.new(0, 10, 0, 10) -- Левый верхний угол
-Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Черный фон
-Frame.BackgroundTransparency = 0 -- Убрана прозрачность
-Frame.BorderSizePixel = 0
+Frame.Size = UDim2.new(0, 280, 0, 180)
+Frame.Position = UDim2.new(0, 10, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Frame.BackgroundTransparency = 0.1
+Frame.BorderSizePixel = 2
+Frame.BorderColor3 = Color3.fromRGB(100, 100, 255)
 Frame.Parent = ScreenGui
 
+-- Заголовок
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Position = UDim2.new(0, 0, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Phub"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "Phub FPS Lagger"
+Title.TextColor3 = Color3.fromRGB(255, 100, 100)
 Title.TextSize = 18
 Title.Font = Enum.Font.SourceSansBold
 Title.Parent = Frame
 
+-- Кнопка переключения
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(1, -20, 0, 40)
-ToggleButton.Position = UDim2.new(0, 10, 0, 30)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ToggleButton.Position = UDim2.new(0, 10, 0, 35)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.Text = "FPS Lagger"
+ToggleButton.Text = "FPS Lagger: OFF"
+ToggleButton.Font = Enum.Font.SourceSansBold
 ToggleButton.Parent = Frame
 
 local ToggleIndicator = Instance.new("Frame")
 ToggleIndicator.Size = UDim2.new(0, 10, 0, 10)
 ToggleIndicator.Position = UDim2.new(0, 5, 0, 5)
-ToggleIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Зеленый индикатор (включено)
+ToggleIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 ToggleIndicator.Parent = ToggleButton
 
--- Переменные для перетаскивания
-local isDragging = false
-local dragStart = nil
-local startPos = nil
-local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) -- Плавная анимация
+-- Счётчик переключений
+local SwitchCountLabel = Instance.new("TextLabel")
+SwitchCountLabel.Size = UDim2.new(1, -20, 0, 20)
+SwitchCountLabel.Position = UDim2.new(0, 10, 0, 80)
+SwitchCountLabel.BackgroundTransparency = 1
+SwitchCountLabel.Text = "Switches: 0"
+SwitchCountLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+SwitchCountLabel.TextSize = 14
+SwitchCountLabel.Parent = Frame
 
--- Функция для обработки начала перетаскивания (сенсорный ввод)
+-- === FPS Трекер ===
+local FPSTracker = {}
+local FPSDisplay = Instance.new("ScrollingFrame")
+FPSDisplay.Size = UDim2.new(1, -20, 0, 70)
+FPSDisplay.Position = UDim2.new(0, 10, 0, 105)
+FPSDisplay.BackgroundTransparency = 1
+FPSDisplay.ScrollBarThickness = 4
+FPSDisplay.Parent = Frame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = FPSDisplay
+
+-- === Перетаскивание ===
+local isDragging = false
+local dragStart, startPos
+local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
 Frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isDragging = true
         dragStart = input.Position
         startPos = Frame.Position
     end
 end)
 
--- Функция для обработки перемещения пальцем с анимацией
 Frame.InputChanged:Connect(function(input)
-    if isDragging and input.UserInputType == Enum.UserInputType.Touch then
+    if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
-        local newPosition = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-        local tween = TweenService:Create(Frame, tweenInfo, {Position = newPosition})
-        tween:Play()
+        local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        TweenService:Create(Frame, tweenInfo, {Position = newPos}):Play()
     end
 end)
 
--- Функция для обработки конца перетаскивания
 Frame.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isDragging = false
     end
 end)
 
--- Функция для экипировки/снятия "Dark Matter Slap" (FPS Lagger)
-local function switchDarkMatterSlap()
-    local tool = Backpack:FindFirstChild("Dark Matter Slap")
-    if tool and tool:IsA("Tool") and Player.Character then
-        Player.Character.Humanoid:EquipTool(tool)
-        task.wait(switchDelay)
-        Player.Character.Humanoid:UnequipTools()
-        task.wait(switchDelay)
+-- === FPS Оценка ===
+local function estimateFPS(player)
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+
+    local hrp = char.HumanoidRootPart
+    local lastPos = hrp.Position
+    local lastTime = tick()
+    local updates = 0
+
+    -- Считаем обновления позиции за 0.5 сек
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        if not player.Character or player.Character.Humanoid.Health <= 0 then
+            conn:Disconnect()
+            return
+        end
+        local currPos = hrp.Position
+        local currTime = tick()
+        if (currPos - lastPos).Magnitude > 0.5 then
+            updates += 1
+            lastPos = currPos
+            lastTime = currTime
+        end
+    end)
+
+    task.wait(UPDATE_INTERVAL)
+    conn:Disconnect()
+
+    local elapsed = tick() - lastTime
+    local fps = updates / elapsed
+    return math.clamp(math.floor(fps * 2), 1, 200) -- Умножаем на 2 для реалистичности
+end
+
+-- === Обновление GUI FPS ===
+local function updateFPSDisplay()
+    for _, label in pairs(FPSDisplay:GetChildren()) do
+        if label:IsA("TextLabel") then label:Destroy() end
+    end
+
+    if not Player.Character or not Player.Character:FindFirstChild("HumanoidRootPart") then return end
+    local myPos = Player.Character.HumanoidRootPart.Position
+
+    local nearby = {}
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= Player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (plr.Character.HumanoidRootPart.Position - myPos).Magnitude
+            if dist <= MAX_DISTANCE then
+                table.insert(nearby, {Player = plr, Distance = dist})
+            end
+        end
+    end
+
+    table.sort(nearby, function(a, b) return a.Distance < b.Distance end)
+
+    for i, data in ipairs(nearby) do
+        local plr = data.Player
+        local fps = estimateFPS(plr) or 0
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 0, 20)
+        label.BackgroundTransparency = 1
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Font = Enum.Font.SourceSans
+        label.TextSize = 14
+        label.LayoutOrder = i
+
+        local status = ""
+        local color = Color3.fromRGB(100, 255, 100)
+        if fps >= 60 then
+            status = "HIGH FPS"
+            color = Color3.fromRGB(0, 255, 0)
+        elseif fps >= 30 then
+            status = "MED FPS"
+            color = Color3.fromRGB(255, 255, 0)
+        else
+            status = "LOW FPS!"
+            color = Color3.fromRGB(255, 0, 0)
+        end
+
+        label.Text = string.format("%s: ~%d FPS [%s]", plr.DisplayName, fps, status)
+        label.TextColor3 = color
+        label.Parent = FPSDisplay
+    end
+
+    FPSDisplay.CanvasSize = UDim2.new(0, 0, 0, #nearby * 20)
+end
+
+-- === Переключение всех инструментов ===
+local switchCount = 0
+local function switchAllTools()
+    local tools = {}
+    for _, tool in pairs(Backpack:GetChildren()) do
+        if tool:IsA("Tool") then table.insert(tools, tool) end
+    end
+
+    if #tools == 0 or not Player.Character then return end
+    local hum = Player.Character:FindFirstChild("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    for _, tool in ipairs(tools) do
+        if not isSwitching then break end
+        if hum.Health <= 0 then break end
+        if tool.Parent == Backpack then
+            hum:EquipTool(tool)
+            task.wait(switchDelay)
+            hum:UnequipTools()
+            task.wait(switchDelay)
+            switchCount += 1
+            SwitchCountLabel.Text = "Switches: " .. switchCount
+        end
     end
 end
 
--- Логика переключения для FPS Lagger
 local function startSwitching()
-    while isSwitching and Player.Character and Player.Character.Humanoid.Health > 0 do
-        switchDarkMatterSlap()
-        task.wait(switchDelay) -- Дополнительная задержка между циклами
+    while isSwitching do
+        if Player.Character and Player.Character:FindFirstChild("Humanoid") and Player.Character.Humanoid.Health > 0 then
+            switchAllTools()
+        end
+        task.wait(0.01)
     end
 end
 
--- Функция для Anti Lagger (автоматически применяется при запуске)
+-- === Anti-Lag ===
 local function applyAntiLag()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player.Character then
-            for _, child in pairs(player.Character:GetChildren()) do
-                if child:IsA("Accessory") or child:IsA("Clothing") or child:IsA("Shirt") or child:IsA("Pants") then
-                    child:Destroy() -- Удаляем визуально для пользователя
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr.Character then
+            for _, obj in pairs(plr.Character:GetDescendants()) do
+                if obj:IsA("Accessory") or obj:IsA("Shirt") or obj:IsA("Pants") or
+                   obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Decal") then
+                    obj:Destroy()
                 end
             end
         end
     end
 end
 
--- Автоматическое применение Anti Lagger и FPS Lagger при запуске
 applyAntiLag()
-if Player.Character and Player.Character.Humanoid.Health > 0 then
-    spawn(startSwitching) -- Автоматически запускаем FPS Lagger
-end
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(applyAntiLag) end)
 
--- Обработка кнопки FPS Lagger (теперь только для выключения)
+-- === Кнопка ===
 ToggleButton.MouseButton1Click:Connect(function()
     isSwitching = not isSwitching
     ToggleIndicator.BackgroundColor3 = isSwitching and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-    if not isSwitching and task.wait(0.1) then -- Небольшая задержка для остановки
-        Player.Character.Humanoid:UnequipTools() -- Снимаем инструмент при выключении
+    ToggleButton.Text = isSwitching and "FPS Lagger: ON" or "FPS Lagger: OFF"
+    if isSwitching then spawn(startSwitching) end
+end)
+
+-- === Горячая клавиша M ===
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.M then
+        Frame.Visible = not Frame.Visible
     end
 end)
 
--- Открытие/закрытие меню клавишей (например, "M")
-UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-    if not gameProcessedEvent and input.KeyCode == Enum.KeyCode.M then
-        Frame.Visible = not Frame.Visible
+-- === Обновление FPS каждые 0.7 сек ===
+task.spawn(function()
+    while true do
+        task.wait(0.7)
+        if Frame.Visible then
+            updateFPSDisplay()
+        end
     end
 end)
