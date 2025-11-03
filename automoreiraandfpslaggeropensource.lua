@@ -1,4 +1,4 @@
--- === MOREIRA TOOLS: FPS LAGGER + AUTO MOREIRA (ОТДЕЛЬНО!) ===
+-- === PHUB: FPS LAGGER + AUTO MOREIRA + BLOCK ALL (БЕЗ ДРУЗЕЙ) ===
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -10,9 +10,9 @@ local LocalPlayer = Players.LocalPlayer
 local Player = LocalPlayer
 local Backpack = Player:WaitForChild("Backpack")
 
--- === [1] МЕНЮ С ДВУМЯ КНОПКАМИ ===
+-- === [1] МЕНЮ PHUB ===
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MoreiraMenu"
+ScreenGui.Name = "PhubMenu"
 ScreenGui.Parent = Player.PlayerGui
 
 local Frame = Instance.new("Frame")
@@ -24,13 +24,14 @@ Frame.BorderSizePixel = 0
 Frame.Parent = ScreenGui
 Frame.Visible = true
 
+-- ЗАГОЛОВОК: PHUB
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundTransparency = 1
-Title.Text = "Moreira Tools"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 18
-Title.Font = Enum.Font.SourceSansBold
+Title.Text = "PHUB"
+Title.TextColor3 = Color3.fromRGB(255, 0, 150)  -- Яркий розовый цвет
+Title.TextSize = 22
+Title.Font = Enum.Font.GothamBold
 Title.Parent = Frame
 
 -- Кнопка 1: FPS Lagger
@@ -49,7 +50,7 @@ FpsIndicator.Position = UDim2.new(0, 5, 0, 5)
 FpsIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 FpsIndicator.Parent = FpsButton
 
--- Кнопка 2: Auto Moreira (ТОЛЬКО Anti-Lag)
+-- Кнопка 2: Auto Moreira (Anti-Lag)
 local AutoButton = Instance.new("TextButton")
 AutoButton.Size = UDim2.new(1, -20, 0, 35)
 AutoButton.Position = UDim2.new(0, 10, 0, 75)
@@ -100,7 +101,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- === [2] ФУНКЦИЯ: FPS LAGGER (ТОЛЬКО ЛАГ) ===
+-- === [2] FPS LAGGER ===
 local isFpsLagging = false
 local switchDelay = 0.04
 
@@ -135,7 +136,7 @@ end
 
 FpsButton.MouseButton1Click:Connect(FpsLaggerToggle)
 
--- === [3] ФУНКЦИЯ: Auto Moreira (ТОЛЬКО ANTI-LAG) ===
+-- === [3] AUTO MOREIRA (ТОЛЬКО ANTI-LAG) ===
 local isAutoMoreira = false
 
 local function applyAntiLag()
@@ -165,15 +166,10 @@ local function AutoMoreiraToggle()
     AutoButton.Text = isAutoMoreira and "Auto Moreira: ON" or "Auto Moreira: OFF"
 
     if isAutoMoreira then
-        -- Запуск Anti-Lag сразу
         applyAntiLag()
-
-        -- При спавне новых игроков
         Players.PlayerAdded:Connect(function(player)
             player.CharacterAdded:Connect(applyAntiLag)
         end)
-
-        -- Каждые 5 секунд — проверка
         task.spawn(function()
             while isAutoMoreira do
                 task.wait(5)
@@ -185,7 +181,7 @@ end
 
 AutoButton.MouseButton1Click:Connect(AutoMoreiraToggle)
 
--- === [4] АВТО-БЛОК (E → BLOCK ALL) ===
+-- === [4] BLOCK ALL (БЕЗ ДРУЗЕЙ) ===
 local function autoClickBlockButton()
     local prompt = CoreGui:FindFirstChild("PlayerListPrompt")
     if not prompt then return false end
@@ -224,9 +220,10 @@ local function blockPlayer(plr)
     end)
 end
 
+-- БЛОКИРУЕТ ТОЛЬКО НЕ-ДРУЗЕЙ
 local function blockAllPlayers()
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
+        if plr ~= LocalPlayer and not plr:IsFriendsWith(LocalPlayer.UserId) then
             task.spawn(blockPlayer, plr)
         end
     end
@@ -251,9 +248,10 @@ end
 
 -- === УВЕДОМЛЕНИЕ ===
 StarterGui:SetCore("SendNotification", {
-    Title = "Moreira Tools";
-    Text = "Auto Moreira = Anti-Lag | FPS Lagger = Лаг | E = BLOCK ALL";
+    Title = "PHUB";
+    Text = "Меню: M | E → BLOCK ALL (без друзей)";
     Duration = 5;
+    Icon = "rbxassetid://0"  -- Можно вставить иконку
 })
 
-print("Moreira Tools: Готово! Auto Moreira = ТОЛЬКО Anti-Lag | FPS Lagger = ТОЛЬКО Лаг")
+print("PHUB: Запущен | E → BLOCK ALL (без друзей) | FPS Lagger + Anti-Lag")
